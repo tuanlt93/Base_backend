@@ -3,7 +3,7 @@ CFG_TOKEN:
   REFRESH_TOKEN_EXPIRE_DAYS: 7
 
 CFG_REDIS:
-  host: host.docker.internal
+  host: 127.0.0.1
   port: 6379
   db  : 0
   user: 

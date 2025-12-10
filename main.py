@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from core import db
+from core import db, cache
 from crud.role import create_roles
 from crud.user import create_manufacturer
 import asyncio
@@ -23,6 +23,8 @@ async def lifespan(app: FastAPI):
     # Create default manufacturer user if not exist
     await create_manufacturer()
 
+    await cache.connect()
+
     # bg_tasks = bt(app)
     # await mq.connect()
 
@@ -38,12 +40,13 @@ async def lifespan(app: FastAPI):
 
     print(">>> Shutdown")
     await db.stop_db()
+    await cache.disconnect()
     # bg_tasks.stop_tasks()
 
     # await mq.disconnect()
 
 
-Logger(level='debug', to_screen=True, to_file=False)
+Logger(level='warn', to_screen=True, to_file=False)
 app = FastAPI(lifespan=lifespan)
 
 

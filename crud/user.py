@@ -1,11 +1,15 @@
 from http.client import HTTPException
+import json
 from sqlalchemy import select
-from core import jwt_sec, db
+from core import jwt_sec, db, cache
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.user import UserCreate
 from db_models.models import User
 from utils.logger import Logger
 from fastapi import Depends, HTTPException
+
+CACHE_KEY_USERS = "users:list:v1"
+CACHE_EXPIRE = 60  # 60 seconds (1 phút)
 
 async def create_user(session: AsyncSession, data: UserCreate):
     user = User(
@@ -19,6 +23,7 @@ async def create_user(session: AsyncSession, data: UserCreate):
     session.add(user)
     await session.commit()
     await session.refresh(user)
+    await cache.delete(CACHE_KEY_USERS)
     return user
 
 async def create_manufacturer():
@@ -49,3 +54,23 @@ async def read_user_by_email(session: AsyncSession, email: str) -> User | None:
     stmt = select(User).where(User.email == email)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
+
+async def get_users(session: AsyncSession) -> list[User]:
+    cached = await cache.get(CACHE_KEY_USERS)
+    if cached:
+        return cached
+    
+    stmt = (
+        select(User)
+        .where(User.role_id != 0)   # lọc ngay trong DB
+        .order_by(User.id.asc())
+    )
+    result = await session.execute(stmt)
+    users = result.scalars().all()
+    users_dict = [
+        {"id": u.id, "email": u.email, "full_name": u.full_name, "is_active": u.is_active, "role_id": u.role_id}
+        for u in users
+    ]
+
+    await cache.set(CACHE_KEY_USERS, users_dict)
+    return users_dict

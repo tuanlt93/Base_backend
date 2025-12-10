@@ -5,5 +5,7 @@
 **node_modules
 **server.spec
 **Logs
-test*.py
+test*
+**tests
+**test
 .env

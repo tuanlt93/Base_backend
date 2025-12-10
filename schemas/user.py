@@ -22,6 +22,7 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     full_name: str | None
+    is_active: bool
     role_id: int
 
     class Config:

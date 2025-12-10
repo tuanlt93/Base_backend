@@ -3,44 +3,38 @@ from redis.exceptions import ConnectionError
 from utils.logger import Logger
 from typing import Callable, Awaitable
 from .base_mq import BaseMQ
-from config import CFG_REDIS
+from core.cache.redis_cache import RedisCache
 
 
 class RedisMQ(BaseMQ):
-    def __init__(self) -> None:
-        self.__host = CFG_REDIS.get('host', "192.168.240.1")
-        self.__port = CFG_REDIS.get('port', 6379)
-        self.__db = CFG_REDIS.get('db', 0)
-        self.__decode = CFG_REDIS.get('decode_responses', True)
-
-        self.__redis: Redis | None = None
+    def __init__(self, cache: RedisCache) -> None:
+        self.__redis_cache = cache
+        self.__redis: Redis = self.__redis_cache.get_redis()
         self.__pubsub = None
 
-    async def connect(self) -> bool:
-        """Async connect to Redis server."""
-        self.__redis = Redis(
-            host=self.__host,
-            port=self.__port,
-            db=self.__db,
-            decode_responses=self.__decode
-        )
+        self.__is_connected = self.__redis_cache.get_connection()
+        
 
+    async def connect(self) -> None:
+        """Async connect to Redis server."""
         try:
             await self.__redis.ping()
+            self.__is_connected = True
             Logger().info("Connected to Redis successfully")
-            return True
+            
         except ConnectionError as e:
+            self.__is_connected = False
             Logger().error(f"Failed to connect Redis: {e}")
-            return False
+            
 
     async def disconnect(self):
         """Close Redis connection properly."""
-        if self.__redis:
+        if self.__redis and not self.__redis_cache.get_connection():
             await self.__redis.close()
             Logger().info("Redis connection closed")
 
-    def get_connection(self) -> Redis:
-        return self.__redis
+    def get_connection(self) -> bool:
+        return self.__is_connected
 
     async def publisher(self, topic: str, message: str):
         """Async publish message to a topic."""
